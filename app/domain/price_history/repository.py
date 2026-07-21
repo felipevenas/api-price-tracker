@@ -14,7 +14,7 @@ class PriceHistoryRepository:
         await self.db.flush()
         return price_history
 
-    async def list_by_product(
+    async def get_by_product(
         self, product_id: uuid.UUID, skip: int = 0, limit: int = 100
     ) -> List[PriceHistory]:
         result = await self.db.execute(

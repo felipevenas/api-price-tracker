@@ -25,7 +25,7 @@ class ProductRepository:
         )
         return result.scalars().first()
 
-    async def list_by_user(self, user_id: uuid.UUID, skip: int = 0, limit: int = 100) -> List[ProductMonitored]:
+    async def get_by_user(self, user_id: uuid.UUID, skip: int = 0, limit: int = 100) -> List[ProductMonitored]:
         result = await self.db.execute(
             select(ProductMonitored)
             .where(ProductMonitored.user_id == user_id)
@@ -47,15 +47,11 @@ class ProductRepository:
     async def delete(self, product: ProductMonitored) -> None:
         await self.db.delete(product)
 
-    async def get_expired_products_for_checking(self) -> List[ProductMonitored]:
+    async def get_expired_for_checking(self) -> List[ProductMonitored]:
         """
         Retorna todos os produtos ativos cuja verificação de preço está vencida
         (last_checked_at + check_interval_minutes <= NOW() ou last_checked_at é nulo).
         """
-        # Usamos func.now() e text() para compatibilizar a aritmética de datas no Postgres
-        now = datetime.now()
-        
-        # Filtra onde active = True E (last_checked_at é nulo OU tempo expirou)
         query = select(ProductMonitored).where(
             ProductMonitored.active == True,
             or_(
