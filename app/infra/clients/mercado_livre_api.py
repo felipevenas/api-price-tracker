@@ -18,7 +18,7 @@ class MercadoLivreAPIClient:
     @staticmethod
     def extract_item_id(url: str) -> Optional[str]:
         """
-        Extrai o ID do item ou produto de catálogo (ex: MLB3388701977 ou MLB27564070) a partir de URLs do Mercado Livre.
+        Extrai o ID do item ou produto de catálogo (ex: MLB3388701977 ou MLB19373961) a partir de URLs do Mercado Livre.
         """
         if not url:
             return None
@@ -63,7 +63,7 @@ class MercadoLivreAPIClient:
     def get_item_data(self, item_id: str) -> Optional[Dict[str, Any]]:
         """
         Consulta dados do item/produto na API do Mercado Livre.
-        Suporta tanto anúncios diretos (/items/{id}) quanto produtos de catálogo (/products/{id}).
+        Suporta tanto anúncios diretos (/items/{id}) quanto produtos de catálogo (/products/{id}) e suas ofertas associadas.
         """
         token = self.get_access_token()
         if not token:
@@ -96,6 +96,21 @@ class MercadoLivreAPIClient:
                 p_data = resp.json()
                 box_winner = p_data.get("buy_box_winner") or {}
                 price = box_winner.get("price") if isinstance(box_winner, dict) else p_data.get("price")
+
+                # Se o catálogo principal não tiver preço BuyBox direto (ex: produto com variações ou múltiplos vendedores),
+                # busca as ofertas ativas dos vendedores vinculados ao catálogo (/products/{id}/items)
+                if price is None or float(price) <= 0:
+                    try:
+                        logger.info(f"Buscando ofertas de vendedores vinculados para o catálogo {item_id}...")
+                        items_resp = requests.get(f"{product_url}/items?limit=10", headers=headers, timeout=10)
+                        if items_resp.status_code == 200:
+                            items_list = items_resp.json().get("results", [])
+                            prices = [float(it["price"]) for it in items_list if it.get("price") is not None and float(it["price"]) > 0]
+                            if prices:
+                                price = min(prices)
+                                logger.info(f"Menor preço encontrado entre as ofertas do catálogo {item_id}: R$ {price:.2f}")
+                    except Exception as items_err:
+                        logger.debug(f"Erro ao buscar ofertas de vendedores para o catálogo {item_id}: {items_err}")
                 
                 return {
                     "id": p_data.get("id", item_id),
