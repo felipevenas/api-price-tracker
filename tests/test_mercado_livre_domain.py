@@ -10,17 +10,10 @@ client = TestClient(app)
 
 class TestMercadoLivreDomain(unittest.TestCase):
 
-    @patch("app.domain.mercado_livre.usecase.MercadoLivreAPIClient")
-    @patch("app.domain.mercado_livre.usecase.requests.get")
-    def test_get_item_usecase_success(self, mock_get, mock_api_client_cls):
+    def test_get_item_usecase_success(self):
         mock_client_inst = MagicMock()
         mock_client_inst.get_access_token.return_value = "mock_token"
-        mock_client_inst.ITEMS_API_URL = "https://api.mercadolibre.com/items/"
-        mock_api_client_cls.return_value = mock_client_inst
-
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.json.return_value = {
+        mock_client_inst.get_item_data.return_value = {
             "id": "MLB3388701977",
             "title": "Placa de Vídeo RTX 4060",
             "price": 1899.90,
@@ -30,7 +23,6 @@ class TestMercadoLivreDomain(unittest.TestCase):
             "thumbnail": "http://http2.mlstatic.com/D_123.jpg",
             "status": "active"
         }
-        mock_get.return_value = mock_resp
 
         use_case = GetMercadoLivreItemUseCase(api_client=mock_client_inst)
         result = use_case.execute("MLB3388701977")

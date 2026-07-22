@@ -1,6 +1,6 @@
 import re
 import requests
-from typing import Optional
+from typing import Optional, Dict, Any
 from app.core.config import settings
 from app.infra.logging.logger import logger
 
@@ -13,15 +13,12 @@ class MercadoLivreAPIClient:
 
     OAUTH_TOKEN_URL = "https://api.mercadolibre.com/oauth/token"
     ITEMS_API_URL = "https://api.mercadolibre.com/items/"
+    PRODUCTS_API_URL = "https://api.mercadolibre.com/products/"
 
     @staticmethod
     def extract_item_id(url: str) -> Optional[str]:
         """
-        Extrai o ID do item (ex: MLB3388701977) a partir de URLs do Mercado Livre.
-        Exemplos suportados:
-          - https://produto.mercadolivre.com.br/MLB-3388701977-placa-de-video...
-          - https://www.mercadolivre.com.br/p/MLB27564070
-          - https://www.mercadolivre.com.br/p/MLB-27564070
+        Extrai o ID do item ou produto de catálogo (ex: MLB3388701977 ou MLB27564070) a partir de URLs do Mercado Livre.
         """
         if not url:
             return None
@@ -63,16 +60,11 @@ class MercadoLivreAPIClient:
             logger.error(f"Erro de conexão ao solicitar token OAuth do Mercado Livre: {str(e)}")
             return None
 
-    def get_item_price(self, url: str) -> Optional[float]:
+    def get_item_data(self, item_id: str) -> Optional[Dict[str, Any]]:
         """
-        Consulta o preço principal do item na API Oficial do Mercado Livre.
-        Retorna o valor numérico (float) ou None se não for possível obter via API.
+        Consulta dados do item/produto na API do Mercado Livre.
+        Suporta tanto anúncios diretos (/items/{id}) quanto produtos de catálogo (/products/{id}).
         """
-        item_id = self.extract_item_id(url)
-        if not item_id:
-            logger.debug(f"Não foi possível extrair um ID do Mercado Livre (MLB...) da URL: {url}")
-            return None
-
         token = self.get_access_token()
         if not token:
             logger.debug("Token de acesso nulo. Pulando consulta via API Oficial.")
@@ -83,25 +75,62 @@ class MercadoLivreAPIClient:
             "Accept": "application/json"
         }
 
+        # Tentativa 1: Endpoint de Item Direto (/items/{id})
         item_url = f"{self.ITEMS_API_URL}{item_id}"
         try:
-            logger.info(f"Consultando item {item_id} na API Oficial do Mercado Livre...")
+            logger.info(f"Consultando item {item_id} em /items/ na API Oficial do Mercado Livre...")
             resp = requests.get(item_url, headers=headers, timeout=10)
             if resp.status_code == 200:
-                data = resp.json()
-                price = data.get("price")
-                title = data.get("title", "")
-                
-                if price is not None and float(price) > 0:
-                    val = float(price)
-                    logger.info(f"Preço obtido via API Oficial ML para '{title[:40]}...': R$ {val:.2f}")
-                    return val
-                else:
-                    logger.warning(f"API Oficial do ML retornou preço inválido para o item {item_id}: {price}")
-                    return None
+                return resp.json()
             else:
-                logger.warning(f"Consulta ao item {item_id} na API Oficial retornou status {resp.status_code}: {resp.text[:200]}")
-                return None
-        except Exception as e:
-            logger.error(f"Erro ao consultar item {item_id} na API Oficial do Mercado Livre: {str(e)}")
+                logger.info(f"Consulta /items/{item_id} retornou status {resp.status_code}. Tentando fallback /products/{item_id}...")
+        except Exception as err:
+            logger.debug(f"Erro ao consultar /items/{item_id}: {err}")
+
+        # Tentativa 2: Endpoint de Produto de Catálogo (/products/{id})
+        product_url = f"{self.PRODUCTS_API_URL}{item_id}"
+        try:
+            logger.info(f"Consultando produto {item_id} em /products/ na API Oficial do Mercado Livre...")
+            resp = requests.get(product_url, headers=headers, timeout=10)
+            if resp.status_code == 200:
+                p_data = resp.json()
+                box_winner = p_data.get("buy_box_winner") or {}
+                price = box_winner.get("price") if isinstance(box_winner, dict) else p_data.get("price")
+                
+                return {
+                    "id": p_data.get("id", item_id),
+                    "title": p_data.get("name") or p_data.get("title", ""),
+                    "price": price,
+                    "original_price": box_winner.get("original_price") if isinstance(box_winner, dict) else None,
+                    "currency_id": box_winner.get("currency_id") if isinstance(box_winner, dict) else p_data.get("currency_id", "BRL"),
+                    "permalink": p_data.get("permalink", ""),
+                    "thumbnail": p_data.get("thumbnail", ""),
+                    "status": p_data.get("status", "active")
+                }
+            else:
+                logger.warning(f"Consulta /products/{item_id} retornou status {resp.status_code}: {resp.text[:200]}")
+        except Exception as err:
+            logger.error(f"Erro ao consultar /products/{item_id}: {err}")
+
+        return None
+
+    def get_item_price(self, url: str) -> Optional[float]:
+        """
+        Consulta o preço principal do item na API Oficial do Mercado Livre a partir da URL.
+        """
+        item_id = self.extract_item_id(url)
+        if not item_id:
+            logger.debug(f"Não foi possível extrair um ID do Mercado Livre (MLB...) da URL: {url}")
             return None
+
+        data = self.get_item_data(item_id)
+        if not data:
+            return None
+
+        price = data.get("price")
+        if price is not None and float(price) > 0:
+            val = float(price)
+            logger.info(f"Preço obtido via API Oficial ML para ID '{item_id}': R$ {val:.2f}")
+            return val
+
+        return None
