@@ -41,12 +41,14 @@ class GetMercadoLivreItemUseCase:
                 detail=f"O anúncio ou produto '{clean_id}' foi encontrado, porém não possui um preço ativo de venda no momento."
             )
 
+        currency = data.get("currency_id") or "BRL"
+
         return MercadoLivreItemResponse(
             id=data.get("id", clean_id),
             title=data.get("title") or data.get("name", ""),
             price=float(price),
             original_price=float(data["original_price"]) if data.get("original_price") is not None else None,
-            currency_id=data.get("currency_id", "BRL"),
+            currency_id=str(currency),
             permalink=data.get("permalink"),
             thumbnail=data.get("thumbnail"),
             status=data.get("status")

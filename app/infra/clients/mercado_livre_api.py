@@ -81,7 +81,10 @@ class MercadoLivreAPIClient:
             logger.info(f"Consultando item {item_id} em /items/ na API Oficial do Mercado Livre...")
             resp = requests.get(item_url, headers=headers, timeout=10)
             if resp.status_code == 200:
-                return resp.json()
+                data = resp.json()
+                if not data.get("currency_id"):
+                    data["currency_id"] = "BRL"
+                return data
             else:
                 logger.info(f"Consulta /items/{item_id} retornou status {resp.status_code}. Tentando fallback /products/{item_id}...")
         except Exception as err:
@@ -111,13 +114,15 @@ class MercadoLivreAPIClient:
                                 logger.info(f"Menor preço encontrado entre as ofertas do catálogo {item_id}: R$ {price:.2f}")
                     except Exception as items_err:
                         logger.debug(f"Erro ao buscar ofertas de vendedores para o catálogo {item_id}: {items_err}")
-                
+
+                currency = (box_winner.get("currency_id") if isinstance(box_winner, dict) else None) or p_data.get("currency_id") or "BRL"
+
                 return {
                     "id": p_data.get("id", item_id),
                     "title": p_data.get("name") or p_data.get("title", ""),
                     "price": price,
                     "original_price": box_winner.get("original_price") if isinstance(box_winner, dict) else None,
-                    "currency_id": box_winner.get("currency_id") if isinstance(box_winner, dict) else p_data.get("currency_id", "BRL"),
+                    "currency_id": currency,
                     "permalink": p_data.get("permalink", ""),
                     "thumbnail": p_data.get("thumbnail", ""),
                     "status": p_data.get("status", "active")
