@@ -2,6 +2,17 @@
 
 Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 
+## [0.2.0] - 21-07-2026
+
+### Alterações
+
+#### 🔧 Refatorado
+- **Padronização de Nomenclatura CRUD & Refatoração para Abordagem 1 (Clean Architecture)**:
+  - Eliminação de serviços anêmicos (`service.py`) em favor de UseCases focados em ações de aplicação.
+  - Implementação de UseCases isolados por domínio em `app/domain/user/usecase.py`, `app/domain/auth/usecase.py` e `app/domain/product/usecase.py` que dependem e orquestram Repositories diretamente.
+  - Padronização da nomenclatura dos métodos nos repositórios (`get_by_user`, `get_by_product`, `get_expired_for_checking`).
+  - Aplicação de Injeção de Dependências (DI) via `Depends` no topo de cada arquivo de rotas (`routes.py`) e em `app/api/deps.py`.
+
 ## [0.1.0] - 20-07-2026
 
 ### Alterações
