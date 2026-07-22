@@ -31,8 +31,10 @@ class Settings(BaseSettings):
     # Enfileirador e Fila
     REDIS_URL: str = "redis://localhost:6379/0"
     
-    # Scraping (Selenium Grid / Standalone Chrome)
+    # Scraping & APIs de E-commerce
     SELENIUM_HUB_URL: Optional[str] = None  # Se setado, usa WebDriver remoto. Se nulo, roda local headless
+    MERCADO_LIVRE_CLIENT_ID: Optional[str] = None
+    MERCADO_LIVRE_CLIENT_SECRET: Optional[str] = None
     
     model_config = SettingsConfigDict(
         env_file=".env",

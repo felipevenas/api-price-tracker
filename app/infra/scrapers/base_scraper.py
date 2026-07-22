@@ -3,6 +3,7 @@ from typing import Optional
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from app.core.config import settings
+from app.infra.logging import logger
 
 
 class BaseScraper(ABC):
@@ -43,8 +44,9 @@ class BaseScraper(ABC):
         # User-agent realista para simular um browser de usuário real
         chrome_options.add_argument(
             "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
         )
+        chrome_options.add_argument("--lang=pt-BR,pt")
         
         return chrome_options
 
@@ -59,17 +61,26 @@ class BaseScraper(ABC):
                 command_executor=settings.SELENIUM_HUB_URL,
                 options=options
             )
+            try:
+                driver.command_executor._commands["executeCdpCommand"] = (
+                    "POST", '/session/$sessionId/chromium/send_command_and_get_result'
+                )
+                driver.execute("executeCdpCommand", {
+                    'cmd': 'Page.addScriptToEvaluateOnNewDocument',
+                    'params': {
+                        'source': "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+                    }
+                })
+            except Exception as cdp_err:
+                logger.warning(f"Falha ao injetar script CDP no Remote WebDriver: {cdp_err}")
         else:
             driver = webdriver.Chrome(options=options)
-            
-        # Oculta a flag navigator.webdriver injetando script em todas as novas páginas
-        try:
-            driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-                "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-            })
-        except Exception:
-            # Em chamadas WebDriver remotas muito antigas o cdp_cmd pode falhar, ignoramos se ocorrer
-            pass
+            try:
+                driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+                    "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+                })
+            except Exception:
+                pass
             
         driver.set_page_load_timeout(25)
         driver.implicitly_wait(5)
