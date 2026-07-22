@@ -208,7 +208,7 @@ class CheckProductPriceUseCase:
                 
                 old_price = product.current_price
                 product.current_price = price
-                product.last_checked_at = datetime.now()
+                product.last_checked_at = datetime.utcnow()
                 await self.product_repo.save(product)
                 
                 history = PriceHistory(

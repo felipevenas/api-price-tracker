@@ -49,16 +49,23 @@ class ProductRepository:
 
     async def get_expired_for_checking(self) -> List[ProductMonitored]:
         """
-        Retorna todos os produtos ativos cuja verificação de preço está vencida
-        (last_checked_at + check_interval_minutes <= NOW() ou last_checked_at é nulo).
+        Retorna APENAS os produtos ativos cujo intervalo de checagem INDIVIDUAL
+        expirou com base no seu próprio check_interval_minutes.
+
+        Fórmula por produto:
+          last_checked_at + (check_interval_minutes * INTERVAL '1 minute') <= NOW() AT TIME ZONE 'UTC'
+
+        Produtos cujo last_checked_at é NULL (nunca checados) são incluídos imediatamente.
         """
         query = select(ProductMonitored).where(
             ProductMonitored.active == True,
             or_(
                 ProductMonitored.last_checked_at == None,
-                ProductMonitored.last_checked_at + text("INTERVAL '1 minute' * check_interval_minutes") <= func.now()
+                ProductMonitored.last_checked_at + text(
+                    "INTERVAL '1 minute' * check_interval_minutes"
+                ) <= func.timezone('UTC', func.now())
             )
         )
-        
+
         result = await self.db.execute(query)
         return list(result.scalars().all())
