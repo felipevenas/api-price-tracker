@@ -71,12 +71,15 @@ class TestMercadoLivreAPIClient(unittest.TestCase):
 
         self.assertEqual(price, 1899.90)
 
-    @patch.object(MercadoLivreAPIClient, "get_item_price")
-    def test_scraper_uses_api_first(self, mock_get_item_price):
-        mock_get_item_price.return_value = 1999.90
+    @patch("app.infra.scrapers.mercado_livre.GetMercadoLivrePriceByUrlUseCase")
+    def test_scraper_uses_api_first(self, mock_uc_cls):
+        mock_uc_inst = MagicMock()
+        mock_uc_inst.execute.return_value = MagicMock(price=1999.90)
+        mock_uc_cls.return_value = mock_uc_inst
 
         scraper = MercadoLivreScraper()
         price = scraper.scrape("https://produto.mercadolivre.com.br/MLB-3388701977-placa-de-video-_JM")
 
         self.assertEqual(price, 1999.90)
-        mock_get_item_price.assert_called_once()
+        mock_uc_inst.execute.assert_called_once()
+
