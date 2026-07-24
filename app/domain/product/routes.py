@@ -39,7 +39,11 @@ def _build_use_cases(db: AsyncSession):
     }
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    status_code=status.HTTP_201_CREATED,
+    summary="Cadastrar um novo produto para monitoramento",
+)
 async def create_product(
     product_in: ProductCreate,
     request: Request,
@@ -63,7 +67,10 @@ async def create_product(
         return error_response(message="Erro ao cadastrar produto", details=str(e))
 
 
-@router.get("/")
+@router.get(
+    "/",
+    summary="Listar produtos monitorados",
+)
 async def list_products(
     skip: int = 0,
     limit: int = 100,
@@ -79,7 +86,10 @@ async def list_products(
         return error_response(message="Erro ao listar produtos", details=str(e))
 
 
-@router.get("/{product_id}")
+@router.get(
+    "/{product_id}",
+    summary="Obter detalhes de um produto",
+)
 async def get_product(
     product_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -96,7 +106,10 @@ async def get_product(
         return error_response(message="Erro ao obter detalhes do produto", details=str(e))
 
 
-@router.put("/{product_id}")
+@router.put(
+    "/{product_id}",
+    summary="Atualizar configurações de um produto",
+)
 async def update_product(
     product_id: uuid.UUID,
     product_in: ProductUpdate,
@@ -116,7 +129,10 @@ async def update_product(
         return error_response(message="Erro ao atualizar produto", details=str(e))
 
 
-@router.delete("/{product_id}")
+@router.delete(
+    "/{product_id}",
+    summary="Remover produto monitorado",
+)
 async def delete_product(
     product_id: uuid.UUID,
     request: Request,
@@ -135,7 +151,10 @@ async def delete_product(
         return error_response(message="Erro ao remover produto", details=str(e))
 
 
-@router.get("/{product_id}/history")
+@router.get(
+    "/{product_id}/history",
+    summary="Obter histórico de variação de preços",
+)
 async def list_price_history(
     product_id: uuid.UUID,
     skip: int = 0,

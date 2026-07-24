@@ -14,7 +14,10 @@ from app.core.response import success_response, error_response
 router = APIRouter()
 
 
-@router.get("/me")
+@router.get(
+    "/me",
+    summary="Obter perfil do usuário autenticado",
+)
 async def get_user_authenticated(
     current_user: User = Depends(get_current_user),
 ) -> Any:
@@ -25,7 +28,10 @@ async def get_user_authenticated(
         return error_response(message="Erro ao recuperar dados do usuário", details=str(e))
 
 
-@router.put("/me")
+@router.put(
+    "/me",
+    summary="Atualizar perfil do usuário autenticado",
+)
 async def update_user_authenticated(
     user_in: UserUpdate,
     current_user: User = Depends(get_current_user),

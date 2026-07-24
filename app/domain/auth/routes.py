@@ -13,7 +13,11 @@ from app.core.response import success_response, error_response
 router = APIRouter()
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    status_code=status.HTTP_201_CREATED,
+    summary="Registrar um novo usuário",
+)
 async def register(
     user_in: UserCreate,
     db: AsyncSession = Depends(get_db),
@@ -28,7 +32,10 @@ async def register(
         return error_response(message="Erro inesperado ao registrar usuário", details=str(e))
 
 
-@router.post("/login")
+@router.post(
+    "/login",
+    summary="Autenticar usuário e gerar token JWT",
+)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),

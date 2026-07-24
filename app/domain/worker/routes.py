@@ -11,7 +11,10 @@ from app.core.response import success_response, error_response
 router = APIRouter(prefix="/worker", tags=["Worker Jobs"])
 
 
-@router.get("/jobs")
+@router.get(
+    "/jobs",
+    summary="Listar jobs do worker",
+)
 async def list_jobs(
     status: Optional[JobStatus] = Query(None, description="Filtrar por status"),
     limit: int = Query(100, ge=1, le=500),
@@ -29,7 +32,10 @@ async def list_jobs(
         return error_response(message="Erro ao listar jobs recentes", details=str(e))
 
 
-@router.get("/jobs/{job_id}")
+@router.get(
+    "/jobs/{job_id}",
+    summary="Obter detalhes de um job",
+)
 async def get_job(
     job_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
@@ -47,7 +53,10 @@ async def get_job(
         return error_response(message="Erro ao recuperar detalhes do job", details=str(e))
 
 
-@router.get("/jobs/product/{product_id}")
+@router.get(
+    "/jobs/product/{product_id}",
+    summary="Listar jobs associados a um produto",
+)
 async def list_jobs_by_product(
     product_id: uuid.UUID,
     limit: int = Query(50, ge=1, le=200),
