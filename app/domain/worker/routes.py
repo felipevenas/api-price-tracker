@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.domain.worker.repository import WorkerJobRepository
 from app.domain.worker.model import JobStatus
+from app.domain.worker.schemas import WorkerJobResponse
 from app.core.response import success_response, error_response
 
 router = APIRouter(prefix="/worker", tags=["Worker Jobs"])
@@ -27,7 +28,10 @@ async def list_jobs(
     try:
         repo = WorkerJobRepository(db)
         jobs = await repo.get_recent(status=status, limit=limit)
-        return success_response(data=jobs, message="Jobs recentes listados com sucesso")
+        return success_response(
+            data=[WorkerJobResponse.model_validate(j) for j in jobs],
+            message="Jobs recentes listados com sucesso"
+        )
     except Exception as e:
         return error_response(message="Erro ao listar jobs recentes", details=str(e))
 
@@ -48,7 +52,10 @@ async def get_job(
         job = await repo.get_by_id(job_id)
         if not job:
             return error_response(message="Job não encontrado", details=f"Job com ID {job_id} não existe.")
-        return success_response(data=job, message="Detalhes do job recuperados com sucesso")
+        return success_response(
+            data=WorkerJobResponse.model_validate(job),
+            message="Detalhes do job recuperados com sucesso"
+        )
     except Exception as e:
         return error_response(message="Erro ao recuperar detalhes do job", details=str(e))
 
@@ -68,6 +75,9 @@ async def list_jobs_by_product(
     try:
         repo = WorkerJobRepository(db)
         jobs = await repo.get_by_product(product_id=product_id, limit=limit)
-        return success_response(data=jobs, message="Histórico de jobs do produto listado com sucesso")
+        return success_response(
+            data=[WorkerJobResponse.model_validate(j) for j in jobs],
+            message="Histórico de jobs do produto listado com sucesso"
+        )
     except Exception as e:
         return error_response(message="Erro ao listar jobs do produto", details=str(e))

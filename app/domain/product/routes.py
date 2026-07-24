@@ -10,7 +10,8 @@ from app.domain.user.model import User
 from app.domain.product.repository import ProductRepository
 from app.domain.price_history.repository import PriceHistoryRepository
 from app.domain.audit_log.repository import AuditLogRepository
-from app.domain.product.schemas import ProductCreate, ProductUpdate
+from app.domain.product.schemas import ProductCreate, ProductUpdate, ProductResponse
+from app.domain.price_history.schemas import PriceHistoryResponse
 from app.domain.product.usecase import (
     CreateProductUseCase,
     ListProductsUseCase,
@@ -62,7 +63,7 @@ async def create_product(
         except Exception:
             pass
 
-        return success_response(data=created, message="Produto cadastrado com sucesso")
+        return success_response(data=ProductResponse.model_validate(created), message="Produto cadastrado com sucesso")
     except Exception as e:
         return error_response(message="Erro ao cadastrar produto", details=str(e))
 
@@ -81,7 +82,10 @@ async def list_products(
     try:
         uc = _build_use_cases(db)
         products = await uc["list"].execute(current_user.id, skip, limit)
-        return success_response(data=products, message="Produtos listados com sucesso")
+        return success_response(
+            data=[ProductResponse.model_validate(p) for p in products],
+            message="Produtos listados com sucesso"
+        )
     except Exception as e:
         return error_response(message="Erro ao listar produtos", details=str(e))
 
@@ -99,7 +103,7 @@ async def get_product(
     try:
         uc = _build_use_cases(db)
         product = await uc["get"].execute(current_user.id, product_id)
-        return success_response(data=product, message="Produto recuperado com sucesso")
+        return success_response(data=ProductResponse.model_validate(product), message="Produto recuperado com sucesso")
     except NotFoundError as e:
         return error_response(message="Produto não encontrado", details=str(e))
     except Exception as e:
@@ -122,7 +126,7 @@ async def update_product(
         ip = request.client.host if request.client else None
         uc = _build_use_cases(db)
         updated = await uc["update"].execute(current_user.id, product_id, product_in, ip)
-        return success_response(data=updated, message="Produto atualizado com sucesso")
+        return success_response(data=ProductResponse.model_validate(updated), message="Produto atualizado com sucesso")
     except NotFoundError as e:
         return error_response(message="Produto não encontrado", details=str(e))
     except Exception as e:
@@ -166,7 +170,10 @@ async def list_price_history(
     try:
         uc = _build_use_cases(db)
         history = await uc["history"].execute(current_user.id, product_id, skip, limit)
-        return success_response(data=history, message="Histórico de preços listado com sucesso")
+        return success_response(
+            data=[PriceHistoryResponse.model_validate(h) for h in history],
+            message="Histórico de preços listado com sucesso"
+        )
     except NotFoundError as e:
         return error_response(message="Produto não encontrado", details=str(e))
     except Exception as e:

@@ -7,7 +7,7 @@ from app.db.session import get_db
 from app.domain.exceptions import ConflictError, NotFoundError
 from app.domain.user.model import User
 from app.domain.user.repository import UserRepository
-from app.domain.user.schemas import UserUpdate
+from app.domain.user.schemas import UserUpdate, UserResponse
 from app.domain.user.usecase import UpdateUserUseCase
 from app.core.response import success_response, error_response
 
@@ -23,7 +23,7 @@ async def get_user_authenticated(
 ) -> Any:
     """Retorna os dados cadastrais do usuário autenticado."""
     try:
-        return success_response(data=current_user, message="Perfil do usuário recuperado com sucesso")
+        return success_response(data=UserResponse.model_validate(current_user), message="Perfil do usuário recuperado com sucesso")
     except Exception as e:
         return error_response(message="Erro ao recuperar dados do usuário", details=str(e))
 
@@ -40,7 +40,7 @@ async def update_user_authenticated(
     """Atualiza os dados cadastrais do usuário autenticado."""
     try:
         result = await UpdateUserUseCase(UserRepository(db)).execute(current_user.id, user_in)
-        return success_response(data=result, message="Perfil do usuário atualizado com sucesso")
+        return success_response(data=UserResponse.model_validate(result), message="Perfil do usuário atualizado com sucesso")
     except (NotFoundError, ConflictError) as e:
         return error_response(message="Erro ao atualizar dados do usuário", details=str(e))
     except Exception as e:
