@@ -16,6 +16,7 @@ celerybeat-schedule.db
 .env
 .env.local
 .env.*
+!.env.example
 .venv
 venv/
 ENV/
