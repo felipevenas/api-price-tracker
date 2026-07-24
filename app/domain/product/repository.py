@@ -52,18 +52,22 @@ class ProductRepository:
         Retorna APENAS os produtos ativos cujo intervalo de checagem INDIVIDUAL
         expirou com base no seu próprio check_interval_minutes.
 
-        Fórmula por produto:
-          last_checked_at + (check_interval_minutes * INTERVAL '1 minute') <= NOW() AT TIME ZONE 'UTC'
+        Cada produto é avaliado individualmente pela fórmula:
+          last_checked_at + (check_interval_minutes * interval '1 minute') <= NOW() UTC
 
         Produtos cujo last_checked_at é NULL (nunca checados) são incluídos imediatamente.
+        Usar a expressão SQLAlchemy tipada garante que o PostgreSQL referencia
+        corretamente a coluna do produto atual, evitando ambiguidade de text() puro.
         """
+        interval_per_product = (
+            ProductMonitored.check_interval_minutes * text("interval '1 minute'")
+        )
+
         query = select(ProductMonitored).where(
             ProductMonitored.active == True,
             or_(
                 ProductMonitored.last_checked_at == None,
-                ProductMonitored.last_checked_at + text(
-                    "INTERVAL '1 minute' * check_interval_minutes"
-                ) <= func.timezone('UTC', func.now())
+                ProductMonitored.last_checked_at + interval_per_product <= func.now()
             )
         )
 
