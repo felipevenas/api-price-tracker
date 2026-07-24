@@ -1,45 +1,43 @@
 from typing import Any
 from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_user_repository
+from app.db.session import get_db
+from app.domain.exceptions import ConflictError, NotFoundError
 from app.domain.user.repository import UserRepository
-from app.domain.user.schemas import UserCreate, UserResponse
+from app.domain.user.schemas import UserCreate
 from app.domain.auth.usecase import RegisterUserUseCase, AuthenticateUserUseCase
-
-
-def get_register_user_use_case(
-    user_repo: UserRepository = Depends(get_user_repository)
-) -> RegisterUserUseCase:
-    return RegisterUserUseCase(user_repo)
-
-
-def get_authenticate_user_use_case(
-    user_repo: UserRepository = Depends(get_user_repository)
-) -> AuthenticateUserUseCase:
-    return AuthenticateUserUseCase(user_repo)
-
+from app.core.response import success_response, error_response
 
 router = APIRouter()
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(
     user_in: UserCreate,
-    use_case: RegisterUserUseCase = Depends(get_register_user_use_case)
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """
-    Registra um novo usuário no sistema.
-    """
-    return await use_case.execute(user_in)
+    """Registra um novo usuário no sistema."""
+    try:
+        result = await RegisterUserUseCase(UserRepository(db)).execute(user_in)
+        return success_response(data=result, message="Usuário registrado com sucesso")
+    except ConflictError as e:
+        return error_response(message="Erro ao registrar usuário", details=str(e))
+    except Exception as e:
+        return error_response(message="Erro inesperado ao registrar usuário", details=str(e))
 
 
 @router.post("/login")
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    use_case: AuthenticateUserUseCase = Depends(get_authenticate_user_use_case)
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """
-    Autentica o usuário e retorna o token JWT (compatível com Swagger OAuth2).
-    """
-    return await use_case.execute(form_data)
+    """Autentica o usuário e retorna o token JWT."""
+    try:
+        result = await AuthenticateUserUseCase(UserRepository(db)).execute(form_data)
+        return success_response(data=result, message="Login realizado com sucesso")
+    except NotFoundError as e:
+        return error_response(message="Credenciais inválidas", details=str(e))
+    except Exception as e:
+        return error_response(message="Erro inesperado ao realizar login", details=str(e))

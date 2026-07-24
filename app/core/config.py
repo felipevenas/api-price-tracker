@@ -7,6 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Price Monitor API"
     API_V1_STR: str = "/api/v1"
+    ENV: str = "development"
+
     
     # Segurança e Autenticação
     SECRET_KEY: str = Field(default="SUPER_SECRET_KEY_CHANGE_ME_IN_PRODUCTION")
@@ -31,8 +33,10 @@ class Settings(BaseSettings):
     # Enfileirador e Fila
     REDIS_URL: str = "redis://localhost:6379/0"
     
-    # Scraping (Selenium Grid / Standalone Chrome)
+    # Scraping & APIs de E-commerce
     SELENIUM_HUB_URL: Optional[str] = None  # Se setado, usa WebDriver remoto. Se nulo, roda local headless
+    MERCADO_LIVRE_CLIENT_ID: Optional[str] = None
+    MERCADO_LIVRE_CLIENT_SECRET: Optional[str] = None
     
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -43,3 +47,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def get_settings() -> Settings:
+    return settings
+

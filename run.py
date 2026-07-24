@@ -2,6 +2,11 @@ import sys
 import subprocess
 import time
 
+# Configura encoding UTF-8 no stdout no Windows
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+
 
 def run_command(command: str) -> bool:
     """Executa um comando no shell e exibe o output em tempo real."""
@@ -48,6 +53,10 @@ def start_project():
     print("  - pgAdmin 4:       http://localhost:8080")
     print("  - Selenium Grid:   http://localhost:7900 (Senha: secret)")
     print("=" * 60)
+    
+    # 5. Exibe os logs em tempo real automaticamente
+    show_logs()
+
 
 
 def stop_project():
