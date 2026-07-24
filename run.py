@@ -1,3 +1,4 @@
+import os
 import sys
 import subprocess
 import time
@@ -5,6 +6,49 @@ import time
 # Configura encoding UTF-8 no stdout no Windows
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+
+def setup_venv():
+    """Garante que o script esteja executando dentro de um ambiente virtual (venv).
+    Caso o venv não exista, cria e instala as dependências.
+    Se já existe, reinicia o script usando o Python do venv.
+    """
+    venv_dir = os.path.join(os.path.dirname(__file__), ".venv")
+    in_venv = sys.prefix != sys.base_prefix
+
+    if not in_venv:
+        venv_exists = os.path.exists(venv_dir)
+
+        if sys.platform == "win32":
+            python_executable = os.path.join(venv_dir, "Scripts", "python.exe")
+            pip_executable = os.path.join(venv_dir, "Scripts", "pip.exe")
+        else:
+            python_executable = os.path.join(venv_dir, "bin", "python")
+            pip_executable = os.path.join(venv_dir, "bin", "pip")
+
+        if not venv_exists:
+            print("[VENV] Ambiente virtual (.venv) não encontrado. Criando...")
+            try:
+                subprocess.run([sys.executable, "-m", "venv", venv_dir], check=True)
+                print("[VENV] Ambiente virtual criado com sucesso.")
+
+                requirements_path = os.path.join(os.path.dirname(__file__), "requirements.txt")
+                if os.path.exists(requirements_path):
+                    print("[VENV] Instalando dependências (requirements.txt)...")
+                    subprocess.run([pip_executable, "install", "-r", requirements_path], check=True)
+                    print("[VENV] Dependências instaladas com sucesso.")
+            except Exception as e:
+                print(f"[VENV] [ERRO] Falha ao criar ou preparar o venv: {e}")
+                sys.exit(1)
+
+        print("[VENV] Ativando ambiente virtual e reiniciando script...")
+        try:
+            result = subprocess.run([python_executable] + sys.argv)
+            sys.exit(result.returncode)
+        except Exception as e:
+            print(f"[VENV] [ERRO] Falha ao reiniciar o script no venv: {e}")
+            sys.exit(1)
+
 
 
 
@@ -134,4 +178,5 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_venv()
     main()
