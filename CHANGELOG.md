@@ -2,6 +2,22 @@
 
 Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 
+## [0.3.0] - 23-07-2026
+
+### Alterações
+
+#### 🚀 Adicionado
+- **Módulo de Respostas Padronizadas**:
+  * Criação do utilitário [app/core/response.py](file:///C:/Codes/api-price-tracker/app/core/response.py) com [success_response](file:///C:/Codes/api-price-tracker/app/core/response.py#L4) e [error_response](file:///C:/Codes/api-price-tracker/app/core/response.py#L8).
+  * Criação do conjunto de testes correspondente em [tests/test_response.py](file:///C:/Codes/api-price-tracker/tests/test_response.py).
+
+#### 🔧 Refatorado
+- **Padronização das Rotas da API**:
+  * Substituição dos retornos e erros (`HTTPException`) por estruturas padronizadas de sucesso e erro em todas as rotas de domínio: `auth`, `mercado_livre`, `product`, `user` e `worker`.
+  * Atualização dos endpoints `/` e `/health` em [app/main.py](file:///C:/Codes/api-price-tracker/app/main.py) para retornar respostas no novo formato padrão.
+  * Inclusão de um Exception Handler global para capturar exceções imprevistas e retornar a resposta padronizada com status 500.
+  * Correção dos testes correspondentes em [tests/test_mercado_livre_domain.py](file:///C:/Codes/api-price-tracker/tests/test_mercado_livre_domain.py).
+
 ## [0.2.0] - 21-07-2026
 
 ### Alterações
