@@ -16,6 +16,7 @@ from app.domain.user.model import User
 from app.domain.product.model import ProductMonitored
 from app.domain.price_history.model import PriceHistory
 from app.domain.audit_log.model import AuditLog
+from app.domain.worker.model import WorkerJob
 
 # this is the Alembic Config object, which provides access to the values within the .ini file in use.
 config = context.config
