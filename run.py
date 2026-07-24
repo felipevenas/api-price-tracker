@@ -64,6 +64,29 @@ def run_command(command: str) -> bool:
         return False
 
 
+def wait_for_db(timeout: int = 30) -> bool:
+    """Aguarda até que o banco de dados PostgreSQL esteja pronto para aceitar conexões."""
+    print("\n⌛ Aguardando o banco de dados PostgreSQL ficar pronto...")
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            # -T evita erro de "the input device is not a TTY" caso o terminal não seja interativo
+            result = subprocess.run(
+                "docker-compose exec -T db pg_isready -U postgres",
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            if result.returncode == 0:
+                print("❇️ Banco de dados está pronto!")
+                return True
+        except Exception:
+            pass
+        time.sleep(1)
+    print("❌ Timeout: O banco de dados não ficou pronto a tempo.")
+    return False
+
+
 def start_project():
     """Sobe os containers, compila e aplica as migrações do banco de dados."""
     print("=" * 60)
@@ -76,15 +99,19 @@ def start_project():
         print("\n❌ Falha ao iniciar os containers do Docker. Verifique se o Docker Desktop está rodando.")
         return
 
-    # 2. Aguarda um curto período para garantir a inicialização dos bancos
-    print("\nStep 2: Aguardando 5 segundos para estabilização do banco...")
-    time.sleep(5)
+    # 2. Aguarda ativamente o banco de dados estar pronto
+    print("\nStep 2: Aguardando estabilização do banco de dados...")
+    if not wait_for_db():
+        print("\n⚠️ Alerta: O banco de dados demorou para responder. Tentando continuar mesmo assim...")
 
     # 3. Executa as migrações do Alembic
     print("\nStep 3: Aplicando migrações do banco de dados (Alembic)...")
-    if not run_command("docker-compose exec web alembic upgrade head"):
-        print("\n⚠️ Alerta: Falha ao rodar as migrações do Alembic. O banco de dados pode ainda estar inicializando.")
-        print("Você pode tentar executar novamente rodando: python run.py migrate")
+    if not run_command("docker-compose exec -T web alembic upgrade head"):
+        print("\n⚠️ Alerta: Falha ao rodar as migrações do Alembic no container.")
+        print("Tentando rodar migrações localmente...")
+        if not run_command("alembic upgrade head"):
+            print("\n❌ Falha crítica: Não foi possível rodar as migrações locais nem no container.")
+            print("Você pode tentar executar novamente rodando: python run.py migrate")
     
     # 4. Status
     print("\nStep 4: Verificando status dos containers...")
@@ -115,7 +142,9 @@ def stop_project():
 def run_migrations():
     """Apenas aplica as migrações do Alembic."""
     print("\n🔄 Aplicando migrações do Alembic no container...")
-    run_command("docker-compose exec web alembic upgrade head")
+    if not run_command("docker-compose exec -T web alembic upgrade head"):
+        print("Tentando rodar migrações localmente...")
+        run_command("alembic upgrade head")
 
 
 def show_logs():
