@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.api.endpoints.routes import api_router
+from app.core.response import success_response, error_response
 
 # Inicializa o FastAPI
 app = FastAPI(
@@ -50,25 +51,33 @@ async def add_correlation_id(request: Request, call_next):
         correlation_id_ctx.reset(token)
 
 
+# Exception Handler Global para capturar qualquer exceção não tratada na aplicação
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    from app.infra.logging.logger import logger
+    logger.error(f"Erro não tratado capturado pelo handler global: {str(exc)}")
+    return JSONResponse(
+        status_code=500,
+        content=error_response(message="Ocorreu um erro interno no servidor", details=str(exc))
+    )
+
+
 # Endpoints de Saúde e Status básicos
 @app.get("/")
 async def root():
-    return JSONResponse(
-        content={
-            "app": settings.PROJECT_NAME,
-            "status": "online",
-            "version": "1.0.0"
-        }
+    return success_response(
+        data={"version": "1.0.0"},
+        message=f"{settings.PROJECT_NAME} está online"
     )
 
 
 @app.get("/health", tags=["Health"])
 async def health_check():
     # Em fases futuras, podemos verificar a saúde das conexões com BD e Redis aqui
-    return JSONResponse(
-        content={
-            "status": "healthy",
+    return success_response(
+        data={
             "database": "connected_async",
             "cache": "redis_available"
-        }
+        },
+        message="Status de saúde verificado com sucesso"
     )

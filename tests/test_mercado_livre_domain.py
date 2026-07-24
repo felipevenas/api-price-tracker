@@ -62,7 +62,10 @@ class TestMercadoLivreDomain(unittest.TestCase):
 
         response = client.get("/api/v1/mercado-livre/items/MLB3388701977")
         self.assertEqual(response.status_code, 200)
-        data = response.json()
+        json_resp = response.json()
+        self.assertEqual(json_resp["status"], "success")
+        self.assertEqual(json_resp["message"], "Item consultado com sucesso")
+        data = json_resp["data"]
         self.assertEqual(data["id"], "MLB3388701977")
         self.assertEqual(data["price"], 1899.90)
 
@@ -79,6 +82,9 @@ class TestMercadoLivreDomain(unittest.TestCase):
 
         response = client.get("/api/v1/mercado-livre/price?url=https://produto.mercadolivre.com.br/MLB-3388701977")
         self.assertEqual(response.status_code, 200)
-        data = response.json()
+        json_resp = response.json()
+        self.assertEqual(json_resp["status"], "success")
+        self.assertEqual(json_resp["message"], "Preço consultado com sucesso")
+        data = json_resp["data"]
         self.assertEqual(data["item_id"], "MLB3388701977")
         self.assertEqual(data["price"], 1899.90)

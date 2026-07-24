@@ -1,16 +1,16 @@
 import uuid
-from typing import Any, List
+from typing import Any
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.db.session import get_db
+from app.domain.exceptions import NotFoundError
 from app.domain.user.model import User
 from app.domain.product.repository import ProductRepository
-from app.domain.product.schemas import ProductCreate, ProductUpdate, ProductResponse
-from app.domain.price_history.schemas import PriceHistoryResponse
-from app.domain.audit_log.repository import AuditLogRepository
 from app.domain.price_history.repository import PriceHistoryRepository
+from app.domain.audit_log.repository import AuditLogRepository
+from app.domain.product.schemas import ProductCreate, ProductUpdate
 from app.domain.product.usecase import (
     CreateProductUseCase,
     ListProductsUseCase,
@@ -19,170 +19,136 @@ from app.domain.product.usecase import (
     DeleteProductUseCase,
     ListProductPriceHistoryUseCase,
 )
-
-
-def get_product_repository(db: AsyncSession = Depends(get_db)) -> ProductRepository:
-    return ProductRepository(db)
-
-
-def get_audit_log_repository(db: AsyncSession = Depends(get_db)) -> AuditLogRepository:
-    return AuditLogRepository(db)
-
-
-def get_price_history_repository(db: AsyncSession = Depends(get_db)) -> PriceHistoryRepository:
-    return PriceHistoryRepository(db)
-
-
-def get_create_product_use_case(
-    product_repo: ProductRepository = Depends(get_product_repository),
-    audit_repo: AuditLogRepository = Depends(get_audit_log_repository),
-) -> CreateProductUseCase:
-    return CreateProductUseCase(product_repo, audit_repo)
-
-
-def get_list_products_use_case(
-    product_repo: ProductRepository = Depends(get_product_repository),
-) -> ListProductsUseCase:
-    return ListProductsUseCase(product_repo)
-
-
-def get_product_use_case(
-    product_repo: ProductRepository = Depends(get_product_repository),
-) -> GetProductUseCase:
-    return GetProductUseCase(product_repo)
-
-
-def get_update_product_use_case(
-    product_repo: ProductRepository = Depends(get_product_repository),
-    audit_repo: AuditLogRepository = Depends(get_audit_log_repository),
-) -> UpdateProductUseCase:
-    return UpdateProductUseCase(product_repo, audit_repo)
-
-
-def get_delete_product_use_case(
-    product_repo: ProductRepository = Depends(get_product_repository),
-    audit_repo: AuditLogRepository = Depends(get_audit_log_repository),
-) -> DeleteProductUseCase:
-    return DeleteProductUseCase(product_repo, audit_repo)
-
-
-def get_list_price_history_use_case(
-    product_repo: ProductRepository = Depends(get_product_repository),
-    history_repo: PriceHistoryRepository = Depends(get_price_history_repository),
-) -> ListProductPriceHistoryUseCase:
-    return ListProductPriceHistoryUseCase(product_repo, history_repo)
-
+from app.core.response import success_response, error_response
 
 router = APIRouter()
 
 
-@router.post("/", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
+def _build_use_cases(db: AsyncSession):
+    """Monta todos os repositórios e retorna um dicionário de use cases prontos para uso."""
+    product_repo = ProductRepository(db)
+    audit_repo = AuditLogRepository(db)
+    history_repo = PriceHistoryRepository(db)
+    return {
+        "create": CreateProductUseCase(product_repo, audit_repo),
+        "list": ListProductsUseCase(product_repo),
+        "get": GetProductUseCase(product_repo),
+        "update": UpdateProductUseCase(product_repo, audit_repo),
+        "delete": DeleteProductUseCase(product_repo, audit_repo),
+        "history": ListProductPriceHistoryUseCase(product_repo, history_repo),
+    }
+
+
+@router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_product(
     product_in: ProductCreate,
     request: Request,
     current_user: User = Depends(get_current_user),
-    use_case: CreateProductUseCase = Depends(get_create_product_use_case)
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """
-    Cadastra um novo produto para monitoramento de preços.
-    Dispara imediatamente uma tarefa Celery assíncrona para coletar o preço inicial.
-    """
-    ip_address = request.client.host if request.client else None
-    
-    created_product = await use_case.execute(
-        user_id=current_user.id,
-        product_in=product_in,
-        ip_address=ip_address
-    )
-    
+    """Cadastra um produto para monitoramento e dispara a checagem inicial."""
     try:
-        from app.infra.queue.tasks import check_product_price_task
-        check_product_price_task.delay(str(created_product.id))
-    except Exception:
-        pass
-        
-    return created_product
+        ip = request.client.host if request.client else None
+        uc = _build_use_cases(db)
+        created = await uc["create"].execute(current_user.id, product_in, ip)
+
+        try:
+            from app.infra.worker.tasks.price_check import check_product_price_task
+            check_product_price_task.delay(str(created.id))
+        except Exception:
+            pass
+
+        return success_response(data=created, message="Produto cadastrado com sucesso")
+    except Exception as e:
+        return error_response(message="Erro ao cadastrar produto", details=str(e))
 
 
-@router.get("/", response_model=List[ProductResponse])
+@router.get("/")
 async def list_products(
     skip: int = 0,
     limit: int = 100,
     current_user: User = Depends(get_current_user),
-    use_case: ListProductsUseCase = Depends(get_list_products_use_case)
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """
-    Lista todos os produtos que o usuário logado está monitorando.
-    """
-    return await use_case.execute(user_id=current_user.id, skip=skip, limit=limit)
+    """Lista todos os produtos monitorados pelo usuário autenticado."""
+    try:
+        uc = _build_use_cases(db)
+        products = await uc["list"].execute(current_user.id, skip, limit)
+        return success_response(data=products, message="Produtos listados com sucesso")
+    except Exception as e:
+        return error_response(message="Erro ao listar produtos", details=str(e))
 
 
-@router.get("/{product_id}", response_model=ProductResponse)
+@router.get("/{product_id}")
 async def get_product(
     product_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
-    use_case: GetProductUseCase = Depends(get_product_use_case)
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """
-    Recupera os detalhes de um produto monitorado específico.
-    """
-    return await use_case.execute(user_id=current_user.id, product_id=product_id)
+    """Retorna os detalhes de um produto monitorado."""
+    try:
+        uc = _build_use_cases(db)
+        product = await uc["get"].execute(current_user.id, product_id)
+        return success_response(data=product, message="Produto recuperado com sucesso")
+    except NotFoundError as e:
+        return error_response(message="Produto não encontrado", details=str(e))
+    except Exception as e:
+        return error_response(message="Erro ao obter detalhes do produto", details=str(e))
 
 
-@router.put("/{product_id}", response_model=ProductResponse)
+@router.put("/{product_id}")
 async def update_product(
     product_id: uuid.UUID,
     product_in: ProductUpdate,
     request: Request,
     current_user: User = Depends(get_current_user),
-    use_case: UpdateProductUseCase = Depends(get_update_product_use_case)
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """
-    Atualiza as configurações de monitoramento de um produto (ex: nome, preço alvo ou intervalo).
-    """
-    ip_address = request.client.host if request.client else None
-    
-    return await use_case.execute(
-        user_id=current_user.id,
-        product_id=product_id,
-        product_in=product_in,
-        ip_address=ip_address
-    )
+    """Atualiza as configurações de monitoramento de um produto."""
+    try:
+        ip = request.client.host if request.client else None
+        uc = _build_use_cases(db)
+        updated = await uc["update"].execute(current_user.id, product_id, product_in, ip)
+        return success_response(data=updated, message="Produto atualizado com sucesso")
+    except NotFoundError as e:
+        return error_response(message="Produto não encontrado", details=str(e))
+    except Exception as e:
+        return error_response(message="Erro ao atualizar produto", details=str(e))
 
 
-@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{product_id}")
 async def delete_product(
     product_id: uuid.UUID,
     request: Request,
     current_user: User = Depends(get_current_user),
-    use_case: DeleteProductUseCase = Depends(get_delete_product_use_case)
-) -> None:
-    """
-    Remove um produto da lista de monitoramento.
-    """
-    ip_address = request.client.host if request.client else None
-    
-    await use_case.execute(
-        user_id=current_user.id,
-        product_id=product_id,
-        ip_address=ip_address
-    )
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Remove um produto da lista de monitoramento."""
+    try:
+        ip = request.client.host if request.client else None
+        uc = _build_use_cases(db)
+        await uc["delete"].execute(current_user.id, product_id, ip)
+        return success_response(message="Produto removido com sucesso")
+    except NotFoundError as e:
+        return error_response(message="Produto não encontrado", details=str(e))
+    except Exception as e:
+        return error_response(message="Erro ao remover produto", details=str(e))
 
 
-@router.get("/{product_id}/history", response_model=List[PriceHistoryResponse])
+@router.get("/{product_id}/history")
 async def list_price_history(
     product_id: uuid.UUID,
     skip: int = 0,
     limit: int = 100,
     current_user: User = Depends(get_current_user),
-    use_case: ListProductPriceHistoryUseCase = Depends(get_list_price_history_use_case)
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """
-    Retorna o histórico de variações de preço registradas para o produto especificado.
-    """
-    return await use_case.execute(
-        user_id=current_user.id,
-        product_id=product_id,
-        skip=skip,
-        limit=limit
-    )
+    """Retorna o histórico de variações de preço de um produto."""
+    try:
+        uc = _build_use_cases(db)
+        history = await uc["history"].execute(current_user.id, product_id, skip, limit)
+        return success_response(data=history, message="Histórico de preços listado com sucesso")
+    except NotFoundError as e:
+        return error_response(message="Produto não encontrado", details=str(e))
+    except Exception as e:
+        return error_response(message="Erro ao listar histórico de preços", details=str(e))

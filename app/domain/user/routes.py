@@ -1,39 +1,41 @@
 from typing import Any
 from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_user_repository
+from app.api.deps import get_current_user
+from app.db.session import get_db
+from app.domain.exceptions import ConflictError, NotFoundError
 from app.domain.user.model import User
 from app.domain.user.repository import UserRepository
-from app.domain.user.schemas import UserResponse, UserUpdate
+from app.domain.user.schemas import UserUpdate
 from app.domain.user.usecase import UpdateUserUseCase
-
-
-def get_update_user_use_case(
-    user_repo: UserRepository = Depends(get_user_repository)
-) -> UpdateUserUseCase:
-    return UpdateUserUseCase(user_repo)
-
+from app.core.response import success_response, error_response
 
 router = APIRouter()
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me")
 async def get_user_authenticated(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ) -> Any:
-    """
-    Retorna os dados cadastrais do usuário atualmente autenticado.
-    """
-    return current_user
+    """Retorna os dados cadastrais do usuário autenticado."""
+    try:
+        return success_response(data=current_user, message="Perfil do usuário recuperado com sucesso")
+    except Exception as e:
+        return error_response(message="Erro ao recuperar dados do usuário", details=str(e))
 
 
-@router.put("/me", response_model=UserResponse)
+@router.put("/me")
 async def update_user_authenticated(
     user_in: UserUpdate,
     current_user: User = Depends(get_current_user),
-    use_case: UpdateUserUseCase = Depends(get_update_user_use_case)
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """
-    Atualiza os dados cadastrais do usuário atualmente autenticado.
-    """
-    return await use_case.execute(current_user.id, user_in)
+    """Atualiza os dados cadastrais do usuário autenticado."""
+    try:
+        result = await UpdateUserUseCase(UserRepository(db)).execute(current_user.id, user_in)
+        return success_response(data=result, message="Perfil do usuário atualizado com sucesso")
+    except (NotFoundError, ConflictError) as e:
+        return error_response(message="Erro ao atualizar dados do usuário", details=str(e))
+    except Exception as e:
+        return error_response(message="Erro inesperado ao atualizar perfil", details=str(e))
