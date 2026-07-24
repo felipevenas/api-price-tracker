@@ -9,14 +9,7 @@ from alembic import context
 
 # Importa as configurações do app e a Base declarativa
 from app.core.config import settings
-from app.db.base_class import Base
-
-# NOTA: Importar todos os modelos aqui para o autogenerate funcionar!
-from app.domain.user.model import User
-from app.domain.product.model import ProductMonitored
-from app.domain.price_history.model import PriceHistory
-from app.domain.audit_log.model import AuditLog
-from app.domain.worker.model import WorkerJob
+from app.db.base import Base
 
 # this is the Alembic Config object, which provides access to the values within the .ini file in use.
 config = context.config

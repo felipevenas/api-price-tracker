@@ -1,5 +1,7 @@
 from celery import Celery
 from app.core.config import settings
+import app.db.base  # noqa: F401
+
 
 celery_app = Celery(
     "price_monitor_tasks",

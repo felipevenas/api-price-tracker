@@ -5,6 +5,8 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.api.endpoints.routes import api_router
 from app.core.response import success_response, error_response
+import app.db.base  # noqa: F401
+
 
 # Inicializa o FastAPI
 app = FastAPI(
