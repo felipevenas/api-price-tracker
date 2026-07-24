@@ -43,7 +43,7 @@ async def login(
     """Autentica o usuário e retorna o token JWT."""
     try:
         result = await AuthenticateUserUseCase(UserRepository(db)).execute(form_data)
-        return success_response(data=result, message="Login realizado com sucesso")
+        return result
     except NotFoundError as e:
         return error_response(message="Credenciais inválidas", details=str(e))
     except Exception as e:
