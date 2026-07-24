@@ -1,5 +1,6 @@
 import uuid
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
@@ -61,6 +62,27 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
         content=error_response(message="Ocorreu um erro interno no servidor", details=str(exc))
+    )
+
+
+# Exception Handler para capturar erros HTTP (como credenciais inválidas, recurso não encontrado de rotas)
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response(message=exc.detail)
+    )
+
+
+# Exception Handler para capturar erros de validação de payload (RequestValidationError)
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content=error_response(
+            message="Erro de validação nos dados enviados.",
+            details=exc.errors()
+        )
     )
 
 
