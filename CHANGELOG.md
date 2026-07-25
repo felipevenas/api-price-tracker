@@ -2,6 +2,16 @@
 
 Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 
+## [0.3.1] - 25-07-2026
+
+### Alterações
+
+#### 🐛 Corrigido
+- **Orquestração de Checagem de Preços**:
+  * Correção do fuso horário na query de seleção de produtos expirados em [ProductRepository.get_expired_for_checking](file:///C:/Codes/api-price-tracker/app/domain/product/repository.py#L51-L84), normalizando a data atual em UTC naive com `func.timezone('utc', func.now())`.
+  * Prevenção de duplicação de tarefas na fila do Celery filtrando produtos com jobs ativos (`enqueued` ou `processing`) utilizando a cláusula `NOT EXISTS`.
+  * Tratamento de jobs órfãos/travados limitando a verificação de atividade a registros criados nos últimos 10 minutos, o que impede o bloqueio indefinido de produtos na inicialização ou após desligamentos abruptos.
+
 ## [0.3.0] - 23-07-2026
 
 ### Alterações
