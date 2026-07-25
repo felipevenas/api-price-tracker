@@ -1,9 +1,10 @@
 import uuid
 from typing import List, Optional
 from datetime import datetime
-from sqlalchemy import select, or_, func, text
+from sqlalchemy import select, or_, func, text, not_, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.product.model import ProductMonitored
+from app.domain.worker.model import WorkerJob, JobStatus
 
 
 class ProductRepository:
@@ -50,24 +51,39 @@ class ProductRepository:
     async def get_expired_for_checking(self) -> List[ProductMonitored]:
         """
         Retorna APENAS os produtos ativos cujo intervalo de checagem INDIVIDUAL
-        expirou com base no seu próprio check_interval_minutes.
+        expirou com base no seu próprio check_interval_minutes e que não possuem
+        nenhuma tarefa de checagem ativa (enqueued ou processing) recente na fila.
 
         Cada produto é avaliado individualmente pela fórmula:
           last_checked_at + (check_interval_minutes * interval '1 minute') <= NOW() UTC
 
-        Produtos cujo last_checked_at é NULL (nunca checados) são incluídos imediatamente.
-        Usar a expressão SQLAlchemy tipada garante que o PostgreSQL referencia
-        corretamente a coluna do produto atual, evitando ambiguidade de text() puro.
+        A comparação de tempo é normalizada em UTC naive com func.timezone('utc', func.now())
+        para evitar problemas decorrentes de diferenças de fusos horários.
+        Tarefas são consideradas ativas apenas se criadas nos últimos 10 minutos
+        para evitar que jobs órfãos/presos de execuções passadas bloqueiem as checagens.
         """
         interval_per_product = (
             ProductMonitored.check_interval_minutes * text("interval '1 minute'")
         )
 
+        utc_now = func.timezone('utc', func.now())
+
+        # Define limite de tempo para considerar um job ativo como órfão (ex: 10 minutos)
+        stale_threshold = utc_now - text("interval '10 minutes'")
+
+        # Verifica se existe algum job recente ativo para o produto
+        active_jobs_exists = exists().where(
+            WorkerJob.product_id == ProductMonitored.id,
+            WorkerJob.status.in_([JobStatus.enqueued, JobStatus.processing]),
+            WorkerJob.enqueued_at >= stale_threshold
+        )
+
         query = select(ProductMonitored).where(
             ProductMonitored.active == True,
+            not_(active_jobs_exists),
             or_(
                 ProductMonitored.last_checked_at == None,
-                ProductMonitored.last_checked_at + interval_per_product <= func.now()
+                ProductMonitored.last_checked_at + interval_per_product <= utc_now
             )
         )
 
