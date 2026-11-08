@@ -1,77 +1,85 @@
 # Changelog
 
-Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
+All notable changes to this project are documented in this file.
 
-## [0.3.1] - 25-07-2026
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### Alterações
+## [Unreleased]
 
-#### 🐛 Corrigido
-- **Orquestração de Checagem de Preços**:
-  * Correção do fuso horário na query de seleção de produtos expirados em [ProductRepository.get_expired_for_checking](file:///C:/Codes/api-price-tracker/app/domain/product/repository.py#L51-L84), normalizando a data atual em UTC naive com `func.timezone('utc', func.now())`.
-  * Prevenção de duplicação de tarefas na fila do Celery filtrando produtos com jobs ativos (`enqueued` ou `processing`) utilizando a cláusula `NOT EXISTS`.
-  * Tratamento de jobs órfãos/travados limitando a verificação de atividade a registros criados nos últimos 10 minutos, o que impede o bloqueio indefinido de produtos na inicialização ou após desligamentos abruptos.
+### Documentation
 
-## [0.3.0] - 23-07-2026
+- Standardized `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, and the new `CODE_OF_CONDUCT.md` in English, fixing UTF-8/mojibake corruption.
+- Added GitHub pull request and issue templates under `.github/`.
+- Translated `.env.example` comments and placeholder values to English without adding secrets.
+- Documented the verified architecture, environment variables, routes, testing commands, deployment requirements, and known limitations.
+- Clarified that Mercado Livre prices are currently read through the official API and that no concrete Selenium scraper is registered.
 
-### Alterações
+## [0.3.1] - 2026-07-25
 
-#### 🚀 Adicionado
-- **Módulo de Respostas Padronizadas**:
-  * Criação do utilitário [app/core/response.py](file:///C:/Codes/api-price-tracker/app/core/response.py) com [success_response](file:///C:/Codes/api-price-tracker/app/core/response.py#L4) e [error_response](file:///C:/Codes/api-price-tracker/app/core/response.py#L8).
-  * Criação do conjunto de testes correspondente em [tests/test_response.py](file:///C:/Codes/api-price-tracker/tests/test_response.py).
+### Fixed
 
-#### 🔧 Refatorado
-- **Padronização das Rotas da API**:
-  * Substituição dos retornos e erros (`HTTPException`) por estruturas padronizadas de sucesso e erro em todas as rotas de domínio: `auth`, `mercado_livre`, `product`, `user` e `worker`.
-  * Atualização dos endpoints `/` e `/health` em [app/main.py](file:///C:/Codes/api-price-tracker/app/main.py) para retornar respostas no novo formato padrão.
-  * Inclusão de um Exception Handler global para capturar exceções imprevistas e retornar a resposta padronizada com status 500.
-  * Correção dos testes correspondentes em [tests/test_mercado_livre_domain.py](file:///C:/Codes/api-price-tracker/tests/test_mercado_livre_domain.py).
+- **Price-check orchestration**
+  - Fixed the timezone mismatch in the expired-product selection query in `ProductRepository.get_expired_for_checking`, normalizing the current date to naive UTC with `func.timezone('utc', func.now())`.
+  - Prevented duplicate queue tasks by filtering out products with active jobs (`enqueued` or `processing`) using a `NOT EXISTS` clause.
+  - Handled orphaned/stuck jobs by limiting the active-job check to records created in the last 10 minutes, preventing a product from being blocked indefinitely after startup or an abrupt shutdown.
 
-## [0.2.0] - 21-07-2026
+## [0.3.0] - 2026-07-23
 
-### Alterações
+### Added
 
-#### 🔧 Refatorado
-- **Padronização de Nomenclatura CRUD & Refatoração para Abordagem 1 (Clean Architecture)**:
-  - Eliminação de serviços anêmicos (`service.py`) em favor de UseCases focados em ações de aplicação.
-  - Implementação de UseCases isolados por domínio em `app/domain/user/usecase.py`, `app/domain/auth/usecase.py` e `app/domain/product/usecase.py` que dependem e orquestram Repositories diretamente.
-  - Padronização da nomenclatura dos métodos nos repositórios (`get_by_user`, `get_by_product`, `get_expired_for_checking`).
-  - Aplicação de Injeção de Dependências (DI) via `Depends` no topo de cada arquivo de rotas (`routes.py`) e em `app/api/deps.py`.
+- **Standardized response module**
+  - Added `app/core/response.py` with `success_response` and `error_response`.
+  - Added the corresponding test suite in `tests/test_response.py`.
 
-## [0.1.0] - 20-07-2026
+### Refactored
 
-### Alterações
+- **API route standardization**
+  - Replaced raw returns and `HTTPException` usage with standardized success and error envelopes across every domain route: `auth`, `mercado_livre`, `product`, `user`, and `worker`.
+  - Updated the `/` and `/health` endpoints in `app/main.py` to return the new envelope.
+  - Added a global exception handler that captures unexpected exceptions and returns the standardized response with status `500`.
+  - Updated the corresponding tests in `tests/test_mercado_livre_domain.py`.
 
-#### 🚀 Adicionado
-- **Estrutura Arquitetural de Base (Clean Architecture + DDD)**:
-  - Inicialização da estrutura de pastas separando camadas de Domínio (User, Product, Price History, Audit Log), API (Endpoints, Middleware e dependências) e Infraestrutura (Fila, Logging e Scrapers).
-  - Implementação da classe base declarativa do SQLAlchemy com mapeamento dinâmico de nomes de tabelas.
-- **Domínio User & Autenticação Profissional**:
-  - Modelagem da tabela `user` com chaves primárias UUID e índices.
-  - Implementação de hashes de senhas seguros via `bcrypt` e geração/validação de tokens JWT.
-  - Criação de rotas `/auth/register` (cadastro de novos usuários) e `/auth/login` (autenticação com Swagger).
-  - Criação de rota protegida `/users/me` para consulta e edição de dados cadastrais com dependência `get_current_user`.
-- **Domínio Product & Histórico de Preços**:
-  - Modelagem e criação da tabela `product_monitored` com intervalo de checagem customizado e controle de status ativo/inativo.
-  - Criação da tabela `price_history` para rastreamento de variações de preços com suporte a gravação de erros.
-  - Implementação do `ProductService` e `ProductRepository` orquestrando o CRUD e as operações de banco.
-- **Logs de Auditoria e Rastreabilidade**:
-  - Modelagem da tabela `audit_log` utilizando o tipo `JSONB` do Postgres para gravação de metadados dinâmicos de auditoria.
-  - Implementação de registros físicos de auditoria para ações críticas (criação, edição e exclusão de produtos monitorados, além de logins).
-- **Mecanismo de Scraping com Selenium Grid**:
-  - Criação da infraestrutura base de scrapers com suporte ao Selenium Grid do Docker (`chrome:4444`).
-  - Implementação do scraper robusto do Mercado Livre (`MercadoLivreScraper`) tratando layouts de anúncios individuais e catálogo com esperas explícitas (`WebDriverWait`).
-  - Implementação de patches de bypass anti-bot (desativação do `navigator.webdriver` via CDP e desativação do modo headless em ambiente docker permitindo renderização headful virtual).
-  - Implementação de Helpers auxiliares: `price_cleaner` (resiliente para conversão de valores monetários de e-commerce para float) e `url_parser` (extração e validação de domínios).
-- **Observabilidade Estruturada (Logger)**:
-  - Configuração do sistema de logging integrado com `ContextVars` assíncronos.
-  - Injeção dinâmica de identificadores de contexto unificados nos logs: `REQ-xxxx` (para requisições HTTP via Middleware FastAPI) e `TSK-xxxx` (para tarefas em segundo plano do Celery).
-- **Enfileiramento e Agendamento (Celery + Redis + Beat)**:
-  - Setup do Celery configurado com Redis como Broker e Backend.
-  - Criação da tarefa periódica `orchestrate_price_checks` (Celery Beat) para verificar produtos com checagem vencida a cada 1 minuto.
-  - Criação do worker task `check_product_price_task` para carregar o Selenium, realizar o scraping de forma assíncrona, atualizar o banco de dados e persistir a variação do preço.
-- **Script Utilitário de DX**:
-  - Criação do script interativo `run.py` na raiz para iniciar a stack, reconstruir imagens, aplicar migrações do Alembic, e exibir logs e status em tempo real com facilidade.
-- **Suite de Testes com Pytest**:
-  - Configuração de testes unitários com pytest validando as utilidades de limpeza de strings de preços e validadores de URLs.
+## [0.2.0] - 2026-07-21
+
+### Refactored
+
+- **CRUD naming standardization and Clean Architecture refactor**
+  - Removed anemic `service.py` classes in favor of use cases focused on application actions.
+  - Added domain-specific use cases in `app/domain/user/usecase.py`, `app/domain/auth/usecase.py`, and `app/domain/product/usecase.py`, orchestrating repositories directly.
+  - Standardized repository method names (`get_by_user`, `get_by_product`, `get_expired_for_checking`).
+  - Applied dependency injection with `Depends` at the top of each route module and in `app/api/deps.py`.
+
+## [0.1.0] - 2026-07-20
+
+### Added
+
+- **Base architecture (Clean Architecture + DDD)**
+  - Initialized the directory structure separating Domain (User, Product, Price History, Audit Log), API (endpoints, middleware, and dependencies), and Infrastructure (queue, logging, and scrapers).
+  - Implemented the SQLAlchemy declarative base with dynamic table-name mapping.
+- **User domain and authentication**
+  - Modeled the `user` table with UUID primary keys and indexes.
+  - Implemented secure password hashing with `bcrypt` and JWT generation/validation.
+  - Added `/auth/register` and `/auth/login` routes, including Swagger-compatible authentication.
+  - Added the protected `/users/me` route for reading and updating profile data through the `get_current_user` dependency.
+- **Product domain and price history**
+  - Modeled and created the `product_monitored` table with a custom check interval and active/inactive status.
+  - Created the `price_history` table to track price changes and record failures.
+  - Implemented product CRUD orchestration through repositories and services.
+- **Audit and traceability**
+  - Modeled the `audit_log` table using PostgreSQL `JSONB` for dynamic audit metadata.
+  - Added audit records for critical product actions: creation, update, and deletion.
+- **Selenium Grid scraping foundation**
+  - Created the base scraper infrastructure with support for the Docker Selenium Grid (`chrome:4444`).
+  - Added an initial Mercado Livre scraper prototype with explicit waits and anti-bot patches (CDP `navigator.webdriver` override and headful rendering inside the virtual display).
+  - Added helper modules: `price_cleaner` for monetary string conversion and `url_parser` for domain extraction and validation.
+- **Structured logging**
+  - Configured logging with asynchronous `ContextVar` values.
+  - Injected unified context identifiers into logs: `REQ-xxxx` for HTTP requests through FastAPI middleware and `TSK-xxxx` for Celery background tasks.
+- **Queueing and scheduling (Celery + Redis + Beat)**
+  - Configured Celery with Redis as both broker and result backend.
+  - Added the periodic `orchestrate_price_checks` task (Celery Beat) to find products with an expired check interval every minute.
+  - Added the `check_product_price_task` worker task to load Selenium, scrape asynchronously, update the database, and persist the price observation.
+- **Developer experience script**
+  - Added the interactive `run.py` script to start the stack, rebuild images, apply Alembic migrations, and display real-time logs and container status.
+- **Pytest suite**
+  - Configured unit tests validating price-string cleaning helpers and URL validators.

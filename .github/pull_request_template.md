@@ -1,36 +1,46 @@
-# Descrição do Pull Request
+# Pull Request
 
-Por favor, inclua um resumo das alterações feitas e quais problemas ou funcionalidades foram abordados.
+## Description
 
----
+<!-- Describe the change, the motivation, and the problem it solves. Link the related issue when applicable. -->
 
-## Tipo de Alteração
+Refs:
 
-- [ ] 🚀 Nova funcionalidade (feature)
-- [ ] 🐞 Correção de bug (bug fix)
-- [ ] 🔧 Refatoração de código (sem alteração de funcionalidade)
-- [ ] 📝 Documentação (docs)
-- [ ] 🎨 Estilo / Design / Logs (logs, formatação, etc.)
-- [ ] ⚙️ Ajuste de infraestrutura (Docker, CI/CD, dependências, etc.)
+## Type of change
 
-## Como foi testado?
+- [ ] `feat` — new feature
+- [ ] `fix` — bug fix
+- [ ] `refactor` — internal change without behavior change
+- [ ] `docs` — documentation only
+- [ ] `style` — formatting or log-message change
+- [ ] `test` — test-only change
+- [ ] `chore` — build, dependency, container, or tooling change
 
-Por favor, descreva os testes executados para verificar suas alterações e como reproduzi-los.
+## How was it tested?
 
-- [ ] **Testes de Unidade:** Rodou `pytest` localmente e todos os testes passaram.
-- [ ] **Stack Docker Compose:** Subiu os containers via `python run.py start` ou `docker-compose up -d` e os serviços (web, worker, beat, chrome, db, redis) estão saudáveis.
-- [ ] **Logs de Diagnóstico:** Verificou os logs com `python run.py logs` e não há exceptions de banco ou scraping.
-- [ ] **Alembic Migrations:** Gerada e testada nova migração de banco via `alembic upgrade head` (se aplicável).
-- [ ] Outros testes executados:
+<!-- Describe the commands and scenarios you ran. Include relevant output, not only "it works". -->
 
-## Evidência Visual / Logs
+- [ ] `python -m pytest -q` passes.
+- [ ] The application imports successfully: `python -c "from app.main import app; print(len(app.routes))"`.
+- [ ] Docker Compose stack started and the affected flow was exercised manually.
+- [ ] Alembic migration created and applied on a clean database (if applicable).
+- [ ] Celery worker/Beat behavior verified (if applicable).
+- [ ] New or changed endpoint tested through Swagger or `curl`.
+- [ ] Other:
 
-*Se aplicável, cole capturas do terminal, logs significativos de sucesso ou capturas de tela do Swagger/pgAdmin.*
+## Evidence
+
+<!-- Paste relevant logs, request/response envelopes, screenshots of Swagger/pgAdmin, or the Celery task output. Redact secrets and personal data. -->
 
 ## Checklist
 
-- [ ] Meu código segue as diretrizes de estilo do projeto.
-- [ ] Eu fiz uma auto-revisão do meu próprio código.
-- [ ] Comentei partes do meu código que podem ser complexas ou difíceis de entender.
-- [ ] Atualizei o arquivo `CHANGELOG.md` com as minhas modificações na versão correspondente.
-- [ ] Minhas alterações não geraram novos warnings ou erros nos logs do Docker.
+- [ ] I followed the architecture rules in `CONTRIBUTING.md`.
+- [ ] I kept the route → use case → repository direction.
+- [ ] I added or updated tests for the new behavior.
+- [ ] I updated `README.md` and `.env.example` when routes, configuration, or commands changed.
+- [ ] I updated `CHANGELOG.md` for user-visible changes.
+- [ ] I added an Alembic migration and downgrade path for model changes.
+- [ ] I did not commit `.env`, credentials, tokens, caches, or generated artifacts.
+- [ ] I reviewed my own diff and removed unrelated changes.
+- [ ] I considered security and privacy impact (authentication, ownership, SSRF, secret exposure).
+- [ ] The pull request is focused on a single logical change.
